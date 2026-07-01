@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+tokens.txt
+.DS_Store
+data/
+*.onnx
+*.pt
+*.pth
+weights/
+.ipynb_checkpoints/
