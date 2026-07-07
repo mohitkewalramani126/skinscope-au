@@ -48,8 +48,13 @@ Binary malignant-vs-benign mapping from the 7-class `dx` field:
   where possible.
 - Target split: 70% train / 15% val / 15% test (adjust once actual split is run; record
   final counts here).
-- ISIC2018 segmentation split is inherited as-is from the organizers' Training/Validation/Test
-  folders — do not reshuffle across them.
+- **Update (Day 5):** ISIC2018's organizer-provided `Validation_Input`/`Test_Input`
+  folders have no released ground-truth masks (held back for the competition
+  leaderboard), so they cannot be used for supervised evaluation. The segmentation
+  model instead uses its own 70/15/15 split (train 1,815 / val 389 / test 390,
+  `random_state=42`) carved from the 2,594 labeled `Training_Input` images, verified
+  disjoint. See `evaluation/segmentation_report.md` for the full rationale, including a
+  model-selection leakage issue this caught and fixed.
 
 ## Preprocessing
 
@@ -61,7 +66,9 @@ Binary malignant-vs-benign mapping from the 7-class `dx` field:
 
 **Segmentation (ISIC2018)**
 - Source images/masks have highly variable resolution and aspect ratio — resize both to a
-  fixed training size (e.g. 512x512).
+  fixed training size. **Update (Day 5): trained/evaluated at 256x256**, not 512x512 as
+  originally planned, to keep iteration and GPU time manageable — revisit if small-lesion
+  quality becomes a bottleneck downstream.
 - **Image resize: bilinear interpolation. Mask resize: nearest-neighbor interpolation** —
   bilinear on the mask would blur the binary 0/255 labels into gray values and corrupt them.
 - Aspect ratio is not preserved (plain resize, no padding) — accepted tradeoff, documented
