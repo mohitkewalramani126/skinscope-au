@@ -11,3 +11,4 @@ data/
 weights/
 .ipynb_checkpoints/
 rag/chroma_db/
+agent/traces.jsonl

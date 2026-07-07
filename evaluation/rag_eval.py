@@ -90,7 +90,7 @@ def evaluate(distance_threshold: float):
 
 if __name__ == "__main__":
     print(f"{'threshold':>10} {'scope_acc':>10} {'precision@k':>12} {'coverage':>9} {'faithfulness':>13}")
-    for t in [0.50, 0.55, 0.60, 0.65, 0.70, 0.75]:
+    for t in [0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.78, 0.80, 0.85]:
         r = evaluate(t)
         print(
             f"{r['threshold']:>10.2f} {r['scope_accuracy']:>10.2%} "

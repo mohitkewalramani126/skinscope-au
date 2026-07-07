@@ -61,39 +61,82 @@ today?" query through as in-scope (distance 0.665) — UV Index content sits clo
 to generic weather queries in embedding space than expected. Rather than adjust
 by eye, `evaluation/rag_eval.py` sweeps the threshold against the full golden set:
 
-| threshold | scope accuracy |
+| threshold | scope accuracy (27 questions) |
 |---|---|
-| 0.50 – 0.65 | 100.00% |
-| 0.70 – 0.75 | 90.91% (the weather query leaks through) |
+| 0.50 – 0.65 | 92.59% |
+| 0.70 – 0.75 | 88.89% |
+| 0.78 – 0.85 | 92.59% |
 
-**`0.65` is used** — the widest margin that still holds 100% scope accuracy on
-this golden set.
+**`0.65` is used** — it ties for the best accuracy on this golden set and sits
+in the middle of the widest contiguous band that achieves it (0.50–0.65), which
+is a more stable choice than the edge of a band.
+
+### The two remaining failures, and why a query-prefix "fix" was rejected
+
+At threshold 0.65, two of 27 golden questions are misclassified — both false
+negatives (wrongly refused), and both extremely short, context-free questions:
+
+| question | distance | expected | predicted |
+|---|---|---|---|
+| "What does ABCDE mean?" | 0.7621 | in-scope | refused |
+| "Am I at risk?" | 0.6676 | in-scope | refused |
+
+These sit farther from the corpus than they "should," because on their own —
+with no conversation history — they are genuinely ambiguous. "Am I at risk?"
+could be about anything; only conversational context (which this single-turn
+retriever doesn't have) would disambiguate it.
+
+One fix was tried and rejected: prefixing every query with fixed domain context
+("In the context of skin cancer awareness and prevention: ...") before embedding,
+without changing the corpus side. Tested on the two failures plus the two
+closest hard negatives:
+
+| question | distance (no prefix) | distance (with prefix) |
+|---|---|---|
+| "What does ABCDE mean?" (in-scope) | 0.7621 | 0.5069 |
+| "Am I at risk?" (in-scope) | 0.6676 | 0.3487 |
+| "What's the weather like in Sydney today?" (out-of-scope) | 0.6649 | 0.3709 |
+| "Can you recommend a good moisturizer?" (out-of-scope) | 0.6602 | 0.5119 |
+
+The prefix does pull both in-scope failures closer — but it pulls the
+out-of-scope queries closer by *more*, since injecting the same domain context
+into every query compresses all distances toward "relevant" regardless of
+actual content. This would trade 2 false refusals for false acceptances on
+genuinely unrelated queries, which is a worse failure mode for a safety-relevant
+gate. **Rejected; threshold 0.65 with no prefix stays.**
+
+This is a real, documented limitation rather than a solved problem: the scope
+gate is reliable for well-formed questions (25/27 correct) but has a known blind
+spot on extremely terse, context-free ones. The right fix is conversational
+context (carrying prior turns into scope-checking), not a static prefix — that's
+future work beyond Day 11's single-turn agent.
 
 ## Golden set
 
-`evaluation/golden_qa.json` — 22 questions (17 in-scope, 5 out-of-scope), authored
+`evaluation/golden_qa.json` — 27 questions (22 in-scope, 5 out-of-scope), authored
 to cover every corpus topic plus a range of out-of-scope difficulty: easy negatives
-(weather, recipes, sports, stocks) and one deliberately hard negative — "Can you
+(weather, recipes, sports, stocks), one deliberately hard negative — "Can you
 recommend a good moisturizer for dry skin?" — which is skincare-adjacent but not
-skin-cancer awareness, to stress-test the scope gate against topically-near
-distractors, not just obviously unrelated ones.
+skin-cancer awareness, and (added during Day 11 agent testing) five deliberately
+terse/colloquial in-scope phrasings ("What does ABCDE mean?", "Am I at risk?",
+etc.) to stress-test sensitivity to real-world question phrasing, not just
+well-formed ones.
 
 ## Results (k=3, threshold=0.65)
 
 | Metric | Value |
 |---|---|
-| Scope accuracy | 100.00% |
-| Mean precision@3 | 35.29% |
+| Scope accuracy | 92.59% (25/27) |
+| Mean precision@3 | 36.36% |
 | Citation coverage | 100.00% |
 | Mean faithfulness | 100.00% |
 
-**Precision@3 needs context to read correctly.** Most golden questions (15 of 17
-in-scope) have exactly one truly relevant chunk in the corpus, so with k=3 the
-mathematical ceiling on precision@3 is 33.3% for those questions (66.7% for the
-2 questions with 2 relevant chunks). Computed across the golden set, the ceiling
-is **37.25%** — the retriever's measured 35.29% is **94.7% of theoretical maximum**.
-Read on its own, "35% precision" sounds weak; in context, it means the retriever
-is close to as good as k=3 retrieval can be against this ground truth.
+**Precision@3 needs context to read correctly.** Most golden questions have
+exactly one or two truly relevant chunks in a 20-chunk corpus, so with k=3 the
+mathematical ceiling on precision@3 across this golden set is **39.39%** — the
+retriever's measured 36.36% is **92.3% of theoretical maximum**. Read on its
+own, "36% precision" sounds weak; in context, it means the retriever is close
+to as good as k=3 retrieval can be against this ground truth.
 
 **Citation coverage of 100%** is the more informative number here: for every
 in-scope golden question, the correct source appeared somewhere in the top-3
@@ -111,13 +154,16 @@ against actually-generated (not merely concatenated) text.
 
 - Precision@3 is capped low by golden-set structure (mostly single-relevant-chunk
   ground truth), not purely retriever weakness — see ceiling calculation above.
-- The out-of-scope threshold (0.65) is tuned against a 22-question golden set;
-  it has not been stress-tested against a larger or more adversarial set of
-  near-miss queries (e.g., cosmetic dermatology, general "is this normal" health
-  questions unrelated to skin cancer).
-- Faithfulness at this stage only verifies that the extractive compose step
-  didn't introduce unsupported text — it does not yet test hallucination
-  resistance under LLM-generated phrasing, which is Day 11 scope.
+- The out-of-scope threshold (0.65) correctly separates well-formed in-scope
+  questions from clear and near-miss negatives, but has a known blind spot on
+  extremely short, context-free in-scope questions ("Am I at risk?") — see the
+  two-failure analysis above. A static query prefix was tried and rejected as a
+  fix since it also pulls negatives closer. The real fix needs conversational
+  context, which this single-turn retriever doesn't have.
+- Faithfulness at this stage (Day 10/retriever-only) only verifies that the
+  extractive compose step didn't introduce unsupported text. Day 11 adds
+  LLM-generated phrasing via Groq on top of this retriever — see the agent's
+  own LLM-as-judge faithfulness evaluation for that layer.
 - The corpus is Australia-focused and intentionally narrow (20 chunks); it does
   not cover every skin cancer subtype, treatment information, or international
   guidance variations.

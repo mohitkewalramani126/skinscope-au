@@ -20,5 +20,10 @@
   {"question": "What's a good recipe for banana bread?", "in_scope": false, "relevant_chunk_ids": []},
   {"question": "Who won the last AFL grand final?", "in_scope": false, "relevant_chunk_ids": []},
   {"question": "What's the best stock to invest in right now?", "in_scope": false, "relevant_chunk_ids": []},
-  {"question": "Can you recommend a good moisturizer for dry skin?", "in_scope": false, "relevant_chunk_ids": []}
+  {"question": "Can you recommend a good moisturizer for dry skin?", "in_scope": false, "relevant_chunk_ids": []},
+  {"question": "What does ABCDE mean?", "in_scope": true, "relevant_chunk_ids": ["abcde-guide"]},
+  {"question": "Is my mole dangerous?", "in_scope": true, "relevant_chunk_ids": ["mole-vs-cancer", "abcde-guide"]},
+  {"question": "What is melanoma?", "in_scope": true, "relevant_chunk_ids": ["nodular-melanoma", "abcde-guide"]},
+  {"question": "How do I put on sunscreen?", "in_scope": true, "relevant_chunk_ids": ["sunscreen-application"]},
+  {"question": "Am I at risk?", "in_scope": true, "relevant_chunk_ids": ["risk-factors"]}
 ]
