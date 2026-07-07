@@ -1,2 +1,11 @@
 pytest
 ruff
+fastapi
+uvicorn[standard]
+onnxruntime
+opencv-python-headless
+numpy
+pillow
+albumentations
+pydantic
+python-multipart
