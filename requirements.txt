@@ -3,9 +3,11 @@ ruff
 fastapi
 uvicorn[standard]
 onnxruntime
-opencv-python-headless
-numpy
+opencv-python-headless==4.10.0.84
+numpy<2
 pillow
 albumentations
 pydantic
 python-multipart
+sentence-transformers==2.7.0
+chromadb

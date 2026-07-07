@@ -10,3 +10,4 @@ data/
 *.pth
 weights/
 .ipynb_checkpoints/
+rag/chroma_db/
