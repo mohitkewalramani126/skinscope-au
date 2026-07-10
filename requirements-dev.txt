@@ -1,0 +1,18 @@
+# Dev/test/lint/monitoring/offline-tooling dependencies -- NOT deployed to
+# production. Install with: pip install -r requirements.txt -r requirements-dev.txt
+-r requirements.txt
+
+pytest
+pytest-cov
+httpx
+ruff
+evidently
+pandas
+mlflow
+pillow  # test image fixtures (tests/test_inference.py) + evaluation/drift_report.py -- not needed at runtime, cv2 handles decode/encode there
+huggingface_hub  # rag/download_embedding_model.py, deploy_to_hf_space.py (kept for reference, HF deploy path abandoned)
+
+# Dropped from requirements.txt Day 14 to cut Vercel bundle size -- still
+# useful locally / for the Docker (non-Vercel) path:
+uvicorn[standard]  # hot-reload + uvloop for local `uvicorn app:app --reload`
+langfuse  # to actually exercise tracing locally; agent/tracing.py no-ops without it

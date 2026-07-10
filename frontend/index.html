@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SkinScope AU: Skin Cancer Awareness Tool</title>
+<meta name="description" content="A responsible skin-cancer awareness tool. Not a diagnostic device.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="css/styles.css">
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+</head>
+<body>
+
+<div id="ss-gate" class="ss-gate" role="dialog" aria-modal="true" aria-labelledby="ss-gate-title">
+  <div class="ss-gate-card">
+    <svg class="ss-logo ss-logo-sm" viewBox="0 0 220 220" aria-hidden="true"><use href="#ss-logomark"></use></svg>
+    <h2 id="ss-gate-title" class="ss-gate-title">Before you begin</h2>
+    <p class="ss-gate-p">
+      SkinScope AU is a public awareness demo, not a medical device. It does not diagnose
+      skin cancer, and a low-risk result does not rule it out. It can be wrong in both
+      directions, and it is measurably less sensitive on darker skin tones.
+    </p>
+    <p class="ss-gate-p">
+      Your photo is analysed in memory and not stored. If you'd rather not upload a real
+      photo, use one of the two sample images once inside.
+    </p>
+    <p class="ss-gate-p ss-gate-p-strong">
+      Always have any new, changing, or concerning spot checked by a doctor or
+      dermatologist &mdash; regardless of what this tool says.
+    </p>
+    <button type="button" id="ss-gate-accept" class="ss-analyze-btn ss-gate-btn">I understand, continue</button>
+  </div>
+</div>
+
+<svg style="display:none" aria-hidden="true">
+  <defs>
+    <clipPath id="ss-lens-clip">
+      <circle cx="92" cy="118" r="27"></circle>
+    </clipPath>
+  </defs>
+  <symbol id="ss-logomark" viewBox="0 0 220 220">
+    <!-- soft overlapping colour blobs, echoing the hero background -->
+    <circle class="ss-logo-blob-a" cx="90" cy="102" r="60"></circle>
+    <circle class="ss-logo-blob-c" cx="128" cy="66" r="42"></circle>
+    <circle class="ss-logo-blob-b" cx="148" cy="116" r="48"></circle>
+
+    <!-- magnifying glass, lens revealing a close-up "skin texture" pattern -->
+    <g clip-path="url(#ss-lens-clip)">
+      <circle class="ss-logo-lens-bg" cx="92" cy="118" r="27"></circle>
+      <circle class="ss-logo-tex" cx="80" cy="107" r="4"></circle>
+      <circle class="ss-logo-tex" cx="93" cy="100" r="3"></circle>
+      <circle class="ss-logo-tex" cx="105" cy="111" r="4.5"></circle>
+      <circle class="ss-logo-tex" cx="85" cy="122" r="3.5"></circle>
+      <circle class="ss-logo-tex" cx="100" cy="127" r="4"></circle>
+      <circle class="ss-logo-tex" cx="75" cy="131" r="3"></circle>
+      <circle class="ss-logo-tex" cx="110" cy="129" r="3"></circle>
+      <circle class="ss-logo-tex" cx="95" cy="114" r="2.4"></circle>
+      <circle class="ss-logo-tex" cx="70" cy="115" r="2.4"></circle>
+    </g>
+    <circle class="ss-logo-lens-ring" cx="92" cy="118" r="27"></circle>
+    <line class="ss-logo-handle" x1="112" y1="138" x2="132" y2="158"></line>
+
+    <!-- a simple side-profile line, drawn over the lens like the reference art -->
+    <path class="ss-logo-face" fill="none" d="M72,48 C92,40 110,48 119,64 C127,78 121,91 133,101
+      C145,111 163,105 171,117 C177,127 165,133 153,135 C143,137 137,143 141,153
+      C145,163 157,165 153,177 C149,189 135,187 127,181 C119,176 113,181 113,191
+      C113,201 121,209 113,217 C105,225 93,221 85,229"></path>
+  </symbol>
+</svg>
+
+<div role="alert" class="ss-banner">
+  <span aria-hidden="true" class="ss-banner-dot">i</span>
+  <span><strong>SkinScope AU is an awareness tool, not a medical device.</strong> It does not diagnose skin cancer, and a low-risk result does not rule it out. Always have any new, changing, or concerning spot checked by a doctor or dermatologist.</span>
+</div>
+
+<div class="ss-subheader">
+  <div class="ss-brand">
+    <svg class="ss-logo ss-logo-sm" viewBox="0 0 220 220" aria-hidden="true"><use href="#ss-logomark"></use></svg>
+    <span class="ss-brand-name">SkinScope AU</span>
+  </div>
+  <span class="ss-brand-tag">Skin-cancer awareness &middot; Australia</span>
+</div>
+
+<header class="ss-hero">
+  <canvas id="hero-canvas" aria-hidden="true"></canvas>
+  <div class="ss-hero-vignette" aria-hidden="true"></div>
+  <div class="ss-hero-content">
+    <svg class="ss-logo ss-logo-hero ss-reveal" data-reveal="0" viewBox="0 0 220 220" aria-hidden="true"><use href="#ss-logomark"></use></svg>
+    <div data-reveal="60" class="ss-reveal ss-kicker">Awareness, not diagnosis</div>
+    <h1 data-reveal="130" class="ss-reveal ss-title">SkinScope AU</h1>
+    <p data-reveal="200" class="ss-reveal ss-punchline">Skin doesn&rsquo;t lie. <span class="ss-punchline-accent">Neither should you.</span></p>
+    <p data-reveal="260" class="ss-reveal ss-tagline">A skin-cancer awareness tool. Upload a photo, ask a question, or both.</p>
+    <a href="#ss-workspace" data-reveal="400" aria-label="Jump to the tool" class="ss-reveal ss-start-link">
+      <span>Start</span>
+      <span aria-hidden="true" class="ss-bob">&darr;</span>
+    </a>
+  </div>
+</header>
+
+<main class="ss-main">
+
+  <section class="ss-info-section">
+    <button id="info-toggle" aria-expanded="true" class="ss-info-toggle">
+      <span>
+        <span class="ss-eyebrow">Before you start</span>
+        <span class="ss-info-title">How this works, and what it is not</span>
+      </span>
+      <span class="ss-info-toggle-right">
+        <span id="info-toggle-label">Hide</span>
+        <span id="info-toggle-chev" aria-hidden="true" class="ss-chev">&#9662;</span>
+      </span>
+    </button>
+    <div id="info-panel-wrap" class="ss-info-panel-wrap">
+      <div class="ss-info-panel-inner">
+        <div class="ss-3col">
+
+          <div class="ss-card ss-tilt">
+            <span aria-hidden="true" class="ss-icon" style="background:rgba(47,122,103,.10);color:#2F7A67;">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"></circle><line x1="15.4" y1="15.4" x2="21" y2="21"></line></svg>
+            </span>
+            <div class="ss-eyebrow" style="color:#2F7A67;">What it is</div>
+            <p class="ss-card-p">Two ML models: one outlines the spot (segmentation), one estimates a calibrated risk score, plus a Q&amp;A assistant that answers only from cited sources, behind a safety gate that refuses diagnostic questions.</p>
+          </div>
+
+          <div class="ss-card ss-tilt">
+            <span aria-hidden="true" class="ss-icon" style="background:rgba(168,91,65,.10);color:#A85B41;">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 L21 20 L3 20 Z"></path><line x1="12" y1="10" x2="12" y2="14.4"></line><line x1="12" y1="17.2" x2="12" y2="17.3"></line></svg>
+            </span>
+            <div class="ss-eyebrow" style="color:#A85B41;">What it is not</div>
+            <p class="ss-card-p">A diagnosis. At its low-false-alarm operating point the risk model misses roughly half of malignant cases. A fairness audit also found lower sensitivity on darker skin tones, so treat those results with extra caution.</p>
+          </div>
+
+          <div class="ss-card ss-tilt">
+            <span aria-hidden="true" class="ss-icon" style="background:rgba(154,115,38,.12);color:#9A7326;">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.6 V9 A5 5 0 0 0 17 9 V3.6"></path><circle cx="7" cy="3.6" r="1.1"></circle><circle cx="17" cy="3.6" r="1.1"></circle><path d="M12 14 V16.6 A4 4 0 0 0 15.8 20.4"></path><circle cx="17.7" cy="20.2" r="2.1"></circle></svg>
+            </span>
+            <div class="ss-eyebrow" style="color:#9A7326;">What to actually do</div>
+            <p class="ss-card-p">Build a monthly skin-check habit: same light, same angle, photos for comparison. Then see a GP or dermatologist about anything new, changing, or concerning. That judgement belongs to them, not to this tool.</p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="ss-workspace" class="ss-workspace-section">
+    <div data-reveal="0" class="ss-reveal ss-workspace-card">
+      <div class="ss-workspace-head">
+        <span class="ss-eyebrow">The tool</span>
+        <h2 class="ss-workspace-title">Add a photo, ask a question, or both</h2>
+      </div>
+      <div class="ss-2col ss-workspace-grid">
+
+        <div>
+          <label id="ss-photo-label" class="ss-field-label">1 &middot; Photo <span class="ss-optional">(optional)</span></label>
+          <p class="ss-field-sub">A clear, close photo of a single spot works best.</p>
+          <label for="ss-file" id="ss-dropzone" class="ss-dropzone">
+            <span id="ss-dropzone-placeholder" class="ss-dropzone-placeholder">
+              <span aria-hidden="true" class="ss-upload-icon ss-float">&uarr;</span>
+              <span class="ss-dropzone-text">Drop a photo here, or click to browse</span>
+              <span class="ss-dropzone-hint">JPG or PNG &middot; analysed, never stored</span>
+            </span>
+            <img id="ss-preview-img" alt="Preview of the photo you added" class="ss-preview-img" hidden>
+            <button type="button" id="ss-clear-btn" class="ss-remove-btn" hidden>Remove</button>
+          </label>
+          <input id="ss-file" type="file" accept="image/*" aria-labelledby="ss-photo-label" class="ss-visually-hidden">
+          <div class="ss-sample-row">
+            <button type="button" id="ss-sample-a" class="ss-pill-btn">Sample A &middot; flat brown spot</button>
+            <button type="button" id="ss-sample-b" class="ss-pill-btn">Sample B &middot; dark raised spot</button>
+          </div>
+        </div>
+
+        <div class="ss-question-col">
+          <label for="ss-q" class="ss-field-label">2 &middot; Question <span class="ss-optional">(optional)</span></label>
+          <p class="ss-field-sub">Plain-English questions about skin checks and changes.</p>
+          <textarea id="ss-q" rows="4" placeholder="e.g. What should I look for when checking my own skin?" class="ss-textarea"></textarea>
+          <div class="ss-example-row">
+            <button type="button" class="ss-outline-pill" data-example="Changes worth a doctor visit?">Changes worth a doctor visit?</button>
+            <button type="button" class="ss-outline-pill" data-example="What does the ABCDE guide mean?">What does ABCDE mean?</button>
+            <button type="button" class="ss-outline-pill" data-example="How should I photograph a spot to track it over time?">How do I photo-track a spot?</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="ss-sensitivity-row">
+        <label class="ss-sensitivity-toggle">
+          <input type="checkbox" id="ss-sensitivity-checkbox">
+          <span class="ss-sensitivity-switch" aria-hidden="true"></span>
+          <span class="ss-sensitivity-label">High-sensitivity mode</span>
+        </label>
+        <p class="ss-sensitivity-note">
+          Standard: escalates only on high-signal results (catches ~51% of real cases, ~95% specificity, fewer false alarms).
+          High-sensitivity: also escalates on moderate-signal results (catches ~77% of real cases, ~86% specificity, more false alarms).
+          Both numbers are measured on our held-out test set, not estimated.
+        </p>
+      </div>
+
+      <div class="ss-analyze-row">
+        <button type="button" id="ss-analyze-btn" class="ss-analyze-btn">Analyze</button>
+        <div class="ss-analyze-meta">
+          <p role="status" id="ss-hint" class="ss-hint" hidden></p>
+          <p class="ss-note">Your photo is analysed, not stored.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-live="polite" class="ss-results-section">
+
+    <div id="ss-loading" class="ss-loading-card" hidden>
+      <div aria-hidden="true" class="ss-loading-sweep"></div>
+      <p class="ss-loading-title">Analyzing&hellip;</p>
+      <div class="ss-loading-steps">
+        <div class="ss-loading-step"><span aria-hidden="true" class="ss-step-dot" style="background:#2F7A67;animation-delay:0s;"></span>Outlining the spot (segmentation)</div>
+        <div class="ss-loading-step"><span aria-hidden="true" class="ss-step-dot" style="background:#9A7326;animation-delay:.8s;"></span>Estimating a calibrated risk score</div>
+        <div class="ss-loading-step"><span aria-hidden="true" class="ss-step-dot" style="background:#A85B41;animation-delay:1.6s;"></span>Composing a cited answer</div>
+      </div>
+    </div>
+
+    <div id="ss-results" class="ss-res" hidden>
+
+      <figure id="ss-figure" class="ss-reveal ss-figure" hidden>
+        <img id="ss-masked-img" alt="Your photo with the area the model outlined shown as a soft coloured highlight" class="ss-masked-img">
+        <figcaption class="ss-figcaption">The soft highlight is the model's outline of the spot: a computer estimate, not a medical annotation.</figcaption>
+      </figure>
+
+      <div class="ss-res-col">
+        <div id="ss-demo-badge" class="ss-demo-badge" hidden>Simulated response &middot; live backend replaces this in production</div>
+
+        <div id="ss-badge" class="ss-reveal ss-risk-badge" hidden>
+          <div class="ss-risk-badge-top">
+            <div id="ss-score-text" class="ss-score-text">0</div>
+            <div>
+              <div id="ss-band-label" class="ss-band-label"></div>
+              <div class="ss-band-sub">Calibrated risk signal (0&ndash;100)</div>
+            </div>
+          </div>
+          <p class="ss-risk-note">This score is uncertain and can be wrong in both directions. A low number does not rule cancer out, and this is not a diagnosis.</p>
+        </div>
+
+        <div id="ss-alert" role="alert" class="ss-reveal ss-alert" hidden>
+          <span aria-hidden="true" class="ss-alert-icon">!</span>
+          <div>
+            <div class="ss-alert-title">Worth an in-person check</div>
+            <div id="ss-alert-reason" class="ss-alert-reason"></div>
+          </div>
+        </div>
+
+        <div id="ss-answer-wrap" class="ss-reveal ss-answer-card" hidden>
+          <div class="ss-eyebrow" style="color:#2F7A67;margin-bottom:12px;">Answer</div>
+          <p id="ss-answer-text" class="ss-answer-text"></p>
+        </div>
+
+        <div id="ss-cites-wrap" class="ss-reveal" hidden>
+          <div class="ss-eyebrow" style="color:#948A7C;margin-bottom:10px;">Sources</div>
+          <div id="ss-cites-list" class="ss-cites-list"></div>
+        </div>
+
+        <p id="ss-disclaimer-echo" class="ss-reveal ss-disclaimer-echo"></p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="ss-footer">
+  <div class="ss-footer-inner">
+    <div class="ss-footer-text">
+      <div class="ss-footer-heading">Anything new, changing, or concerning? See a doctor.</div>
+      <p class="ss-footer-sub">SkinScope AU is an awareness tool, not a medical device. It does not diagnose skin cancer, and a low-risk result does not rule it out.</p>
+    </div>
+    <a href="https://www.healthdirect.gov.au/australian-health-services" target="_blank" rel="noopener noreferrer" class="ss-footer-link">Find a health service &#8599;</a>
+  </div>
+  <div class="ss-footer-bottom">
+    <svg class="ss-logo ss-logo-sm ss-logo-footer" viewBox="0 0 220 220" aria-hidden="true"><use href="#ss-logomark"></use></svg>
+    <span class="ss-footer-copy">&copy; 2026 SkinScope AU. A student awareness project, not a certified medical product.</span>
+  </div>
+</footer>
+
+<script src="js/hero.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

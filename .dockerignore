@@ -1,0 +1,13 @@
+.git
+__pycache__
+**/__pycache__
+.pytest_cache
+tests
+notebooks
+test_images
+rag/chroma_db
+agent/traces.jsonl
+.env
+.venv
+evaluation/drift_report.html
+mlruns

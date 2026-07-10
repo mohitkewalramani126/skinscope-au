@@ -103,3 +103,45 @@ def test_check_scope_node_no_question_defaults_in_scope():
     state: AgentState = {}
     result = check_scope_node(state)
     assert result["in_scope"] is True
+
+
+# ---------- sensitivity_mode (Day 12 feature): standard vs. high ----------
+# standard escalates only on "high" (50.7% sensitivity / 95.1% specificity);
+# "high" also escalates on "moderate" (76.7% sensitivity / 86.1% specificity).
+# Both operating points are measured, not invented -- see docs/model_card.md.
+
+def test_standard_mode_does_not_escalate_on_moderate_band():
+    state: AgentState = {"risk_band": "moderate", "sensitivity_mode": "standard"}
+    response = safety_gate_node(state)["response"]
+    assert response.escalate is False
+    assert response.escalation_reason is None
+    assert response.sensitivity_mode == "standard"
+
+
+def test_high_sensitivity_mode_escalates_on_moderate_band():
+    state: AgentState = {"risk_band": "moderate", "sensitivity_mode": "high"}
+    response = safety_gate_node(state)["response"]
+    assert response.escalate is True
+    assert response.escalation_reason is not None
+    assert response.sensitivity_mode == "high"
+
+
+def test_high_sensitivity_mode_still_escalates_on_high_band():
+    state: AgentState = {"risk_band": "high", "sensitivity_mode": "high"}
+    response = safety_gate_node(state)["response"]
+    assert response.escalate is True
+
+
+def test_high_sensitivity_mode_does_not_escalate_on_low_band():
+    state: AgentState = {"risk_band": "low", "sensitivity_mode": "high"}
+    response = safety_gate_node(state)["response"]
+    assert response.escalate is False
+
+
+def test_sensitivity_mode_defaults_to_standard_when_absent():
+    # no sensitivity_mode key at all -> must default safely to "standard",
+    # not silently escalate more than a client explicitly asked for
+    state: AgentState = {"risk_band": "moderate"}
+    response = safety_gate_node(state)["response"]
+    assert response.escalate is False
+    assert response.sensitivity_mode == "standard"

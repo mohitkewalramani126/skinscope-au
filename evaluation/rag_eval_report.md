@@ -25,18 +25,21 @@ corpus are backed by content actually fetched and read in full.
 
 ## Index
 
-`rag/build_index.py` embeds each chunk with `sentence-transformers/all-MiniLM-L6-v2`
-and stores them in a local persistent Chroma collection (cosine distance space).
-Re-running this script rebuilds the index from scratch, so it stays reproducible
-as the corpus changes.
+`rag/build_index.py` embeds each chunk with `all-MiniLM-L6-v2` and writes
+`rag/embeddings.json`, a small precomputed-embeddings file used for plain numpy
+cosine-similarity search. Re-running this script rebuilds it from scratch, so
+it stays reproducible as the corpus changes.
 
-**Dependency note:** the environment's torch (2.2.2) can't be upgraded (no newer
-wheel available), and the latest `sentence-transformers`/`transformers` releases
-now hard-require torch>=2.4. Pinned `sentence-transformers==2.7.0` (contemporaneous
-with torch 2.2) resolves this. Also pinned `opencv-python-headless==4.10.0.84` and
-`numpy<2`, since newer opencv wheels require numpy>=2 while this torch version
-requires numpy<2 — both constraints are recorded in `requirements.txt` so a fresh
-install doesn't silently drift into the same conflict.
+**Day 14 update:** originally used `sentence-transformers` (PyTorch) +
+`chromadb`. Both were dropped in favor of `rag/embedder.py` — the same model
+run directly via `onnxruntime` + the `tokenizers` library, no torch — to fit a
+free-tier serverless host's memory/bundle-size limits. Re-verified after the
+swap: the threshold sweep below reproduces the exact same two failures at the
+exact same distances as the original sentence-transformers implementation
+(see `rag/retriever.py`'s docstring), confirming the ONNX reimplementation is
+numerically faithful, not a behavior change. For a 20-chunk corpus, a full
+vector database was oversized anyway — a flat array and a 20-row linear scan
+costs microseconds.
 
 ## Retriever and grounding
 

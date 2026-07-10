@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "app.py": {
+      "excludeFiles": "{tests/**,notebooks/**,test_images/**,evaluation/**,.github/**,requirements-dev.txt,Dockerfile,.dockerignore,deploy_to_hf_space.py,rag/download_embedding_model.py}"
+    }
+  }
+}

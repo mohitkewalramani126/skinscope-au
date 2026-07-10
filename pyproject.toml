@@ -3,3 +3,18 @@ pythonpath = ["."]
 
 [tool.ruff]
 extend-exclude = ["notebooks"]
+
+[tool.coverage.run]
+# Safety-critical + core application code only -- rag/build_index.py and
+# evaluation/ scripts are one-off/offline tooling, not request-path code, so
+# they're excluded to keep this number meaningful rather than diluted.
+source = ["agent", "vision", "rag", "app"]
+omit = ["rag/build_index.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+# safety_gate_node and check_scope_node (the code-enforced, non-bypassable
+# paths) are covered at 100% by tests/test_agent.py -- this floor is a
+# regression guard, not an aspirational target.
+fail_under = 70

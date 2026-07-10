@@ -37,6 +37,7 @@ class AgentResponse(BaseModel):
     refused: bool = False
     escalate: bool = False
     escalation_reason: Optional[str] = None
+    sensitivity_mode: Literal["standard", "high"] = "standard"
 
 
 class AgentState(TypedDict, total=False):
@@ -44,6 +45,14 @@ class AgentState(TypedDict, total=False):
 
     image_bytes: Optional[bytes]
     question: Optional[str]
+    # "standard": escalate only on the "high" band (score >= 0.7918) --
+    #   50.7% sensitivity / 95.1% specificity, measured Day 7.
+    # "high": also escalate on "moderate" (score >= 0.5) -- 76.7% sensitivity /
+    #   86.1% specificity, same test set. Calibrated 0.5 == raw-probability 0.5
+    #   exactly (temperature scaling doesn't move the 0.5 point), so this is
+    #   not a new number, it's the already-measured threshold-0.5 operating
+    #   point from docs/model_card.md.
+    sensitivity_mode: Literal["standard", "high"]
 
     in_scope: bool
 

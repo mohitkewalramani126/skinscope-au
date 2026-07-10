@@ -1,26 +1,33 @@
 """
-One-time (re-runnable) script: embeds every chunk in rag/corpus.json with a
-sentence-transformers model and stores them in a local persistent Chroma
-collection. Re-run this any time corpus.json changes.
+One-time (re-runnable) script: embeds every chunk in rag/corpus.json and
+writes rag/embeddings.json, a small precomputed-embeddings file used by
+rag/retriever.py for plain numpy cosine-similarity search. Re-run this any
+time corpus.json changes.
 
-Chunking strategy: each corpus.json entry is already a single, topic-scoped
-paragraph (one idea: ABCDE, one skin-cancer type, one prevention step, etc.),
-sized to a few sentences. This is a deliberate choice over splitting a big
-document into arbitrary fixed-length windows — every chunk here is already
-a coherent, independently-citable unit, so no further splitting is needed.
+Day 14 rewrite: this used to build a Chroma persistent vector DB via
+sentence-transformers + chromadb. Both were dropped from the runtime (see
+rag/retriever.py's module docstring) to fit a free-tier serverless host's
+memory/bundle-size limits. For a 20-chunk corpus, a full vector database was
+always somewhat oversized anyway -- a flat numpy array and a linear scan
+over 20 rows costs microseconds, so this isn't a quality tradeoff, just a
+right-sized replacement.
+
+rag/embeddings.json is small (~30KB for 20 chunks x 384 dims) and is
+committed to the repo, unlike the old chroma_db/ directory -- there's
+nothing to gitignore or rebuild at container start anymore.
+
+Requires rag/embedding_model/ to exist first -- run
+rag/download_embedding_model.py once if it doesn't.
 """
 
 import json
 import os
 
-import chromadb
-from sentence_transformers import SentenceTransformer
+from rag.embedder import embed
 
 RAG_DIR = os.path.dirname(__file__)
 CORPUS_PATH = os.path.join(RAG_DIR, "corpus.json")
-CHROMA_DB_PATH = os.path.join(RAG_DIR, "chroma_db")
-COLLECTION_NAME = "skinscope_corpus"
-EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
+EMBEDDINGS_PATH = os.path.join(RAG_DIR, "embeddings.json")
 
 
 def build_index():
@@ -29,36 +36,25 @@ def build_index():
 
     print(f"Loaded {len(corpus)} chunks from {CORPUS_PATH}")
 
-    model = SentenceTransformer(EMBEDDING_MODEL_NAME)
     texts = [chunk["text"] for chunk in corpus]
-    embeddings = model.encode(texts, show_progress_bar=True).tolist()
+    embeddings = embed(texts)
 
-    client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
-    # drop any stale collection so re-running this script is always safe
-    try:
-        client.delete_collection(COLLECTION_NAME)
-    except Exception:
-        pass
-    collection = client.create_collection(
-        name=COLLECTION_NAME,
-        metadata={"hnsw:space": "cosine"},
-    )
+    records = [
+        {
+            "id": chunk["id"],
+            "text": chunk["text"],
+            "topic": chunk["topic"],
+            "source_title": chunk["source_title"],
+            "source_url": chunk["source_url"],
+            "embedding": embeddings[i].tolist(),
+        }
+        for i, chunk in enumerate(corpus)
+    ]
 
-    collection.add(
-        ids=[chunk["id"] for chunk in corpus],
-        embeddings=embeddings,
-        documents=texts,
-        metadatas=[
-            {
-                "topic": chunk["topic"],
-                "source_title": chunk["source_title"],
-                "source_url": chunk["source_url"],
-            }
-            for chunk in corpus
-        ],
-    )
+    with open(EMBEDDINGS_PATH, "w") as f:
+        json.dump(records, f)
 
-    print(f"Indexed {collection.count()} chunks into '{COLLECTION_NAME}' at {CHROMA_DB_PATH}")
+    print(f"Wrote {len(records)} embeddings to {EMBEDDINGS_PATH}")
 
 
 if __name__ == "__main__":

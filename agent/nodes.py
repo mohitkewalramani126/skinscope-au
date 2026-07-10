@@ -50,7 +50,14 @@ DISCLAIMER = (
 )
 ESCALATION_MESSAGE = (
     "This result suggests a higher-risk pattern. Please see a doctor or dermatologist "
-    "for a proper assessment as soon as you can — do not rely on this tool's output alone."
+    "for a proper assessment as soon as you can. Do not rely on this tool's output alone."
+)
+HIGH_SENSITIVITY_MODERATE_MESSAGE = (
+    "You've enabled high-sensitivity mode, which also flags moderate-signal results for "
+    "an in-person check. At the standard setting, this tool misses about half of real "
+    "cases; this mode catches more of them at the cost of more false alarms. Please see "
+    "a doctor or dermatologist for a proper assessment. Do not rely on this tool's "
+    "output alone."
 )
 
 
@@ -147,6 +154,7 @@ def safety_gate_node(state: AgentState) -> dict:
     question = state.get("question")
     in_scope = state.get("in_scope", True)
     risk_band = state.get("risk_band")
+    sensitivity_mode = state.get("sensitivity_mode", "standard")
 
     if question and not in_scope:
         answer = OUT_OF_SCOPE_MESSAGE
@@ -157,7 +165,17 @@ def safety_gate_node(state: AgentState) -> dict:
         citations = [Citation(**c) for c in state.get("citations", [])]
         refused = False
 
-    escalate = risk_band == "high"
+    if sensitivity_mode == "high":
+        # escalate on "moderate" or "high" -- 76.7% sensitivity / 86.1%
+        # specificity (measured Day 7, threshold 0.5). More false alarms,
+        # catches more real cases.
+        escalate = risk_band in ("moderate", "high")
+        escalation_reason = HIGH_SENSITIVITY_MODERATE_MESSAGE if risk_band == "moderate" else ESCALATION_MESSAGE
+    else:
+        # escalate only on "high" -- 50.7% sensitivity / 95.1% specificity
+        # (measured Day 7, threshold 0.7918). Fewer false alarms, misses more.
+        escalate = risk_band == "high"
+        escalation_reason = ESCALATION_MESSAGE
 
     response = AgentResponse(
         mask_png_base64=state.get("mask_png_base64"),
@@ -168,6 +186,7 @@ def safety_gate_node(state: AgentState) -> dict:
         disclaimer=DISCLAIMER,
         refused=refused,
         escalate=escalate,
-        escalation_reason=ESCALATION_MESSAGE if escalate else None,
+        escalation_reason=escalation_reason if escalate else None,
+        sensitivity_mode=sensitivity_mode,
     )
     return {"response": response}

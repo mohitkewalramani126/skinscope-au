@@ -1,0 +1,15 @@
+.git
+__pycache__
+**/__pycache__
+.pytest_cache
+.venv
+mlruns
+evaluation/drift_report.html
+agent/traces.jsonl
+.env
+# pyproject.toml here only holds ruff/pytest/coverage config, not PEP 621
+# package metadata -- Vercel's Python builder treats any pyproject.toml as
+# a project manifest and runs `uv lock` against it, which fails without a
+# [project] table. requirements.txt is our actual dependency source and is
+# already supported directly by Vercel, so just don't upload this file.
+pyproject.toml

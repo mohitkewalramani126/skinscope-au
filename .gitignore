@@ -5,10 +5,28 @@ __pycache__/
 tokens.txt
 .DS_Store
 data/
-*.onnx
+# *.onnx used to be blanket-ignored, but Day 14 deployment (Vercel, git-based
+# build) needs models/*.onnx and rag/embedding_model/model.onnx actually
+# committed -- see docs/architecture.md for why this is safe (both models
+# are well under GitHub's 100MB per-file limit, no git-lfs needed).
+# best_*.pt/.pth training checkpoints are still excluded -- those are large,
+# dev-machine-only artifacts, never needed at runtime.
 *.pt
 *.pth
 weights/
 .ipynb_checkpoints/
-rag/chroma_db/
 agent/traces.jsonl
+mlruns/
+evaluation/drift_report.html
+.vercel
+.coverage
+.coverage.*
+mlflow.db
+# leftover from the abandoned chromadb-based RAG index (Day 14 moved to
+# rag/embeddings.json + plain numpy cosine search, see rag/retriever.py) --
+# not read by any code path anymore.
+rag/chroma_db/
+# huggingface_hub's own download cache (lock files/metadata), not the actual
+# model files -- rag/embedding_model/model.onnx and tokenizer.json themselves
+# ARE committed (see the *.onnx note above), just not this cache junk.
+rag/embedding_model/.cache/

@@ -14,7 +14,6 @@ crop the classifier's input. Preprocessing below must exactly match training
 
 import os
 
-import albumentations as A
 import cv2
 import numpy as np
 import onnxruntime as ort
@@ -58,15 +57,25 @@ def get_classifier_session() -> ort.InferenceSession:
     return _classifier_session
 
 
-_segmentation_transform = A.Compose([
-    A.Resize(SEGMENTATION_IMG_SIZE, SEGMENTATION_IMG_SIZE),
-    A.Normalize(mean=IMAGENET_MEAN.tolist(), std=IMAGENET_STD.tolist()),
-])
-
-_classifier_transform = A.Compose([
-    A.Resize(CLASSIFIER_IMG_SIZE, CLASSIFIER_IMG_SIZE),
-    A.Normalize(mean=IMAGENET_MEAN.tolist(), std=IMAGENET_STD.tolist()),
-])
+# Day 14 (first attempt): tried dropping cv2 entirely in favor of PIL, to save the
+# ~152MB opencv-python-headless install. Reverted — PIL's Image.BILINEAR and cv2's
+# INTER_LINEAR are NOT equivalent at large downscale ratios (these source photos are
+# ~4000px, resized to 224-256px, an ~18x reduction), and swapping produced a real,
+# measured regression: risk_score moved by 2-3x and one test image's risk_band
+# flipped from "low" to "moderate". Verified via before/after comparison on
+# test_images/IMG_2084.jpg and IMG_2085.jpg — not floating-point noise.
+#
+# Kept instead: only `albumentations` itself was removed (its Resize/Normalize were
+# just thin wrappers around cv2.resize + manual normalize anyway), which still drops
+# the ~103MB transitive scipy dependency with zero behavior change, since cv2 itself
+# is untouched below.
+def _resize_and_normalize(image_rgb: np.ndarray, size: int) -> np.ndarray:
+    """Bilinear resize to size x size (cv2.INTER_LINEAR, matching training and
+    albumentations.Resize's default), then ImageNet normalize (matches
+    albumentations.Normalize's default: divide by 255, then (x - mean) / std)."""
+    resized = cv2.resize(image_rgb, (size, size), interpolation=cv2.INTER_LINEAR)
+    arr = resized.astype(np.float32) / 255.0
+    return (arr - IMAGENET_MEAN) / IMAGENET_STD
 
 
 def load_image_rgb(image_bytes: bytes) -> np.ndarray:
@@ -74,21 +83,21 @@ def load_image_rgb(image_bytes: bytes) -> np.ndarray:
     if not image_bytes:
         raise ValueError("Empty image data — no bytes to decode")
     arr = np.frombuffer(image_bytes, dtype=np.uint8)
-    img_bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
-    if img_bgr is None:
+    bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if bgr is None:
         raise ValueError("Could not decode image — not a valid image file")
-    return cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+    return cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
 
 
 def preprocess_for_segmentation(image_rgb: np.ndarray) -> np.ndarray:
-    transformed = _segmentation_transform(image=image_rgb)["image"]
-    chw = transformed.transpose(2, 0, 1)
+    normalized = _resize_and_normalize(image_rgb, SEGMENTATION_IMG_SIZE)
+    chw = normalized.transpose(2, 0, 1)
     return np.expand_dims(chw, axis=0).astype(np.float32)
 
 
 def preprocess_for_classifier(image_rgb: np.ndarray) -> np.ndarray:
-    transformed = _classifier_transform(image=image_rgb)["image"]
-    chw = transformed.transpose(2, 0, 1)
+    normalized = _resize_and_normalize(image_rgb, CLASSIFIER_IMG_SIZE)
+    chw = normalized.transpose(2, 0, 1)
     return np.expand_dims(chw, axis=0).astype(np.float32)
 
 
@@ -112,8 +121,8 @@ def _mask_to_png_base64(mask: np.ndarray) -> str:
     mask_uint8 = (mask * 255).astype(np.uint8) if mask.max() <= 1 else mask.astype(np.uint8)
     success, buffer = cv2.imencode(".png", mask_uint8)
     if not success:
-        raise RuntimeError("Failed to encode mask as PNG")
-    return base64.b64encode(buffer).decode("utf-8")
+        raise ValueError("Failed to encode mask as PNG")
+    return base64.b64encode(buffer.tobytes()).decode("utf-8")
 
 
 def _risk_band(calibrated_score: float) -> str:
@@ -133,7 +142,11 @@ def analyze_image(image_bytes: bytes) -> AnalysisResult:
     seg_logits = get_segmentation_session().run(None, {"input": seg_input})[0]
     seg_probs = _sigmoid(seg_logits[0, 0])  # replaces: 1 / (1 + np.exp(-seg_logits[0, 0]))
     mask_small = (seg_probs > 0.5).astype(np.uint8)
-    mask_full_size = cv2.resize(mask_small, (original_w, original_h), interpolation=cv2.INTER_NEAREST)
+    # NEAREST, not bilinear — this is a binary 0/1 mask; any smoothing interpolation
+    # would blur it into invalid in-between values.
+    mask_full_size = cv2.resize(
+        mask_small, (original_w, original_h), interpolation=cv2.INTER_NEAREST
+    )
 
     # classification — SAME full image, independent pass, never cropped by the mask above
     cls_input = preprocess_for_classifier(image_rgb)

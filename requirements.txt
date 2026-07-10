@@ -1,17 +1,62 @@
-pytest
-ruff
+# Runtime-only dependencies -- this is what actually ships to production
+# (Vercel deploys straight from this file). Dev/test/lint/monitoring tools
+# live in requirements-dev.txt instead, since bundling pytest, ruff,
+# evidently, and mlflow into the deployed app would bloat Vercel's Python
+# function past its 500MB uncompressed bundle limit for no runtime benefit
+# -- none of those run in the request path.
+#
+# albumentations was removed Day 14 -- it transitively pulled in scipy (~103MB)
+# just to wrap A.Resize/A.Normalize around calls that are cv2.resize + a manual
+# (x/255 - mean)/std anyway (see vision/inference.py's _resize_and_normalize).
+# opencv-python-headless itself is KEPT: an earlier attempt to also drop cv2 in
+# favor of PIL was tried and reverted -- PIL's Image.BILINEAR and cv2's
+# INTER_LINEAR are not equivalent at this pipeline's large downscale ratio
+# (~4000px source photos -> 224-256px model input), and the swap produced a
+# measured regression (one test image's risk_band flipped low -> moderate).
+# Not worth ~152MB of bundle size for a behavior change in a safety-relevant
+# score.
+#
+# Second bundle-size pass (Day 14, after the albumentations cut above still
+# left the deploy at 562.79MB > 500MB):
+#   - uvicorn[standard] -> plain uvicorn. The "standard" extras (uvloop,
+#     httptools, websockets, watchfiles ~ -20MB) are for uvicorn's own dev
+#     server (hot reload, perf event loop). app.py has no uvicorn.run() call --
+#     Vercel's Python builder imports the ASGI `app` object directly and never
+#     shells out to uvicorn. uvicorn is only invoked by the Dockerfile CMD,
+#     which is for other hosts (Render/Fly/VPS), not Vercel -- so the extras
+#     are pure dead weight here. Still installed for local dev / Docker via
+#     requirements-dev.txt.
+#   - python-dotenv removed: grepped the whole repo, load_dotenv()/`import
+#     dotenv` is never called anywhere. Vercel injects env vars directly
+#     (dashboard-set, not a .env file), so this was unused, not just
+#     redundant.
+#   - langfuse removed (~13MB, its own opentelemetry dependency chain):
+#     agent/tracing.py already lazily imports it only when
+#     LANGFUSE_SECRET_KEY/LANGFUSE_PUBLIC_KEY are set, and now catches
+#     ImportError there too, so tracing cleanly no-ops without this package
+#     rather than crashing a request. This is a real trade-off (no production
+#     tracing for now), not a free win -- re-add if/when there's bundle
+#     headroom for it, or once further size cuts (e.g. splitting vision vs.
+#     RAG into separate functions) create room.
+#   - huggingface_hub pinned <0.30: tokenizers pulls in huggingface_hub as a
+#     hard dependency, and 0.30+ made `hf_xet` (~11MB, a Hub fast-transfer
+#     backend) install by default via a platform marker rather than an
+#     opt-in extra. This app never calls the Hub API at runtime -- embedder.py
+#     only does Tokenizer.from_file() on a locally-committed tokenizer.json;
+#     hf_hub_download() only lives in the standalone setup script
+#     rag/download_embedding_model.py, which isn't imported by the app -- so
+#     hf_xet is pure dead weight here. Pinning below 0.30 avoids installing
+#     it at all (an env var like HF_HUB_DISABLE_XET only disables its use at
+#     runtime, the package still ships either way, so the pin is the actual
+#     lever).
 fastapi
-uvicorn[standard]
+uvicorn
 onnxruntime
-opencv-python-headless==4.10.0.84
+opencv-python-headless
 numpy<2
-pillow
-albumentations
 pydantic
 python-multipart
-sentence-transformers==2.7.0
-chromadb
+tokenizers
+huggingface_hub<0.30
 langgraph
 groq
-python-dotenv
-langfuse

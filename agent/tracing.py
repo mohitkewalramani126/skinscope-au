@@ -21,7 +21,16 @@ def _get_langfuse_client():
         return _client
     if not os.environ.get("LANGFUSE_SECRET_KEY") or not os.environ.get("LANGFUSE_PUBLIC_KEY"):
         return None
-    from langfuse import get_client
+    try:
+        from langfuse import get_client
+    except ImportError:
+        # Day 14: langfuse is no longer in requirements.txt (its opentelemetry
+        # dependency chain was ~13MB, part of trimming the Vercel bundle under
+        # the 500MB function limit). If someone sets the Langfuse env vars
+        # without the package installed, degrade to "no trace recorded" rather
+        # than crashing every request -- same never-break-the-response
+        # philosophy as trace_run()'s own except clause below.
+        return None
 
     _client = get_client()
     return _client
