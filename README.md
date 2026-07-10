@@ -1,12 +1,4 @@
----
-title: SkinScope AU
-emoji: 🔎
-colorFrom: green
-colorTo: red
-sdk: docker
-app_port: 7860
-pinned: false
----
+
 
 # SkinScope AU
 
@@ -16,12 +8,20 @@ calibrated risk score, and a cited, grounded answer to skin-cancer questions —
 response passes through a single safety gate that attaches a disclaimer and decides
 whether to escalate to "see a doctor."
 
+
+
 ## Screenshots
 
 <img width="1906" height="880" alt="image" src="https://github.com/user-attachments/assets/14bb00e4-0039-492d-9db6-af439a5bf59b" />
 
 
-<img width="1906" height="915" alt="image" src="https://github.com/user-attachments/assets/d4e6a4c4-c4e1-4fd4-ab66-1342ecf77eb0" />
+
+
+<img width="1894" height="915" alt="image" src="https://github.com/user-attachments/assets/64cdad51-133d-40d9-91de-f762f6237822" />
+
+
+
+
 
 
 ## What it does
